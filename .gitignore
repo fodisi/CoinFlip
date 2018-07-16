@@ -1,0 +1,12 @@
+.vscode/
+vscode/
+*.zip
+*.tar
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.svg
+.idea
+.idea/
+
