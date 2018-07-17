@@ -42,7 +42,6 @@ contract CoinFlip {
         uint tailsCount;
         uint headsAmount;
         uint tailsAmount;
-        //Bet[] placedBets;
     }
     
     // The contract's instance owner.
@@ -80,8 +79,8 @@ contract CoinFlip {
     }
     
     /** @dev Opens a session for bets.
-        @param minAmout the minimum amount to be allowed when placing bets.
-        @param duration the timeframe duration that the session will be open for bets.
+        @param minAmount the minimum amount to be allowed when placing bets.
+        @param duration the time frame duration that the session will be open for bets.
         @param fee the house fee that will be paid to the contract's owner.
     */
     function openBetSession(uint minAmount, uint duration, uint fee) external onlyOwner {
@@ -115,6 +114,7 @@ contract CoinFlip {
 
         // Creates a new Bet and assigns it to the list of bets.
         betsBySession[sessionIndex].push(Bet(msg.sender, msg.value, BetOption(option)));
+        // See note at beginning of function.
         //betsBySession[sessionIndex].push(Bet(player, msg.value, BetOption(option)));
         updateSessionStats(BetOption(option), msg.value);
 
@@ -136,7 +136,7 @@ contract CoinFlip {
         );
     }
     
-    /** @dev Updates the stats (counters and amouts) of the current betting session.
+    /** @dev Updates the stats (counters and amounts) of the current betting session.
         @param option 
     */
     function updateSessionStats(BetOption option, uint betAmount) private openForBets {
@@ -161,12 +161,12 @@ contract CoinFlip {
         // calculates the fee that goes to the house/contract.
         uint fee = address(this).balance * sessions[sessionIndex].ownerFee / 100;
         uint totalPrize = address(this).balance - fee;
-        uint winningBetAmout = 0;
+        uint winningBetAmount;
 
         if (winningOption == BetOption.HEAD) {
-            winningBetAmout = sessions[sessionIndex].headsAmount;
+            winningBetAmount = sessions[sessionIndex].headsAmount;
         } else {
-            winningBetAmout = sessions[sessionIndex].tailsAmount;
+            winningBetAmount = sessions[sessionIndex].tailsAmount;
         }
 
         // Pays out players
@@ -175,7 +175,7 @@ contract CoinFlip {
             if (curBet.option == winningOption) {
                 // Gets the percentage of the player's bet, em relation to the amount
                 // betted on the winning result.
-                uint relativeBetSize = curBet.amount / winningBetAmout * 100;
+                uint relativeBetSize = curBet.amount / winningBetAmount * 100;
                 // Calculates the prize for the player, considering its 
                 // stake (relativeBetSize) em relation to the total prize.
                 uint prize = totalPrize * relativeBetSize / 100;
