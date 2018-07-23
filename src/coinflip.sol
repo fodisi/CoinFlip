@@ -103,10 +103,10 @@ contract CoinFlip {
     /** @dev Allows a player to place a bet on a specific outcome (head or tail).
         @param option Bet option chosen by the player. Allowed values are 0 (Heads) and 1 (Tails).
     */
-    function placePlayerBet(uint option) external payable notOwner openForBets {
+    function placeBet(uint option) external payable notOwner openForBets {
     // Used the header bellow to test on REMIX, since it was not allowing to execute the code
     // from other accounts that were not the owner (function "At address").
-    //function placePlayerBet(uint option, address player) external payable openForBets {
+    //function placeBet(uint option, address player) external payable openForBets {
         // Checks if player's bet value meets minimum bet requirement.
         require(msg.value >= sessions[sessionIndex].minimumBet);
         // Checks if player's option is a valid bet option. Value must be in (0==heads; 1==tails).
