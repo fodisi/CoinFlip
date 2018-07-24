@@ -1,6 +1,20 @@
 pragma solidity ^0.4.24;
 
-/** @title Basic contract for betting on the result of a coin flip (head or tail). */
+/** @title CoinFlip
+    @notice Contract for betting on the result of a coin flip (head or tail).
+    @dev The contract was crated using the specific logic (steps):
+    1. The owner/house opens a Betting Session specifying the characteristics
+    of the session: minimum bet, duration of the session (in minutes), 
+    house fee (%). Concurrent bets are not allowed.
+    2. Once a session is open, players can place the bets. However the bet must
+    be placed within the specified duration / timeframe of the betting session
+    (specified when the betting session was opened). After the session duration
+    ends, players cannot place bets.
+    3. The owner/house announces the result of the betting session and pays out
+    the winners. The result cannot be announced while the betting session is
+    opened. Once the result of the current betting session is announced, the 
+    owner/house will be allowed to open a new opened session.
+*/
 contract CoinFlip {
     /* SECURITY NOTE: For simplicity reasons, this contract uses 
     "block.timestamp" to compare timestamps durations and to generate
@@ -87,43 +101,47 @@ contract CoinFlip {
         require(duration > 0);
         require(minAmount > 0);
         require(fee > 0 && fee < 15); // house fee must be between 0 and 15%.
-        require(ongoingSession == false);
+        require(ongoingSession == false); // no concurrent betting sessions.
 
-        // Do not allow concurrent betting sessions.
-        ongoingSession = true;
+        // 1. Saves the timestamp the bet was opened.
+        // 2. Do not allow concurrent betting sessions, by setting sessions as ongoing.
+        // 3. Creates a new betting session using the specified parameters.
+        // 4. Sets a new unique identifier for the bet session.
+        // 5. Raises an event notifying a new betting session was open.
         uint openedAt = block.timestamp;
-        // Creates a new betting session using the specified parameters.
+        ongoingSession = true;
         sessions.push(BetSession(minAmount, fee, duration, openedAt, 0, 0, 0, 0, 0));
-        // Sets a new unique identifier for the bet session.
         sessionIndex = sessions.length - 1;
-        // Raises an event notifying a new betting session was open.
         emit BetSessionOpened(sessionIndex, minAmount, duration, openedAt);
     }
     
     /** @dev Allows a player to place a bet on a specific outcome (head or tail).
         @param option Bet option chosen by the player. Allowed values are 0 (Heads) and 1 (Tails).
     */
-    function placeBet(uint option) external payable notOwner openForBets {
     // Used the header bellow to test on REMIX, since it was not allowing to execute the code
     // from other accounts that were not the owner (function "At address").
     //function placeBet(uint option, address player) external payable openForBets {
-        // Checks if player's bet value meets minimum bet requirement.
+    function placeBet(uint option) external payable notOwner openForBets {
+        // Player's bet value must meet minimum bet requirement.
+        // Player's option must be a valid bet option. Value must be in (0==heads; 1==tails).
         require(msg.value >= sessions[sessionIndex].minimumBet);
-        // Checks if player's option is a valid bet option. Value must be in (0==heads; 1==tails).
         require(option <= uint(BetOption.TAIL));
 
-        // Creates a new Bet and assigns it to the list of bets.
+        // 1. Creates a new Bet and assigns it to the list of bets.
+        // 2. Updates current betting session stats.
+        // 3. Raises an event for the bet placed by the player.
+        //betsBySession[sessionIndex].push(Bet(player, msg.value, BetOption(option)));  // See note at beginning of function.
         betsBySession[sessionIndex].push(Bet(msg.sender, msg.value, BetOption(option)));
-        // See note at beginning of function.
-        //betsBySession[sessionIndex].push(Bet(player, msg.value, BetOption(option)));
         updateSessionStats(BetOption(option), msg.value);
-
-        // Raises an event for the bet placed by the player.
         emit NewBetPlaced(sessionIndex, msg.sender, msg.value, BetOption(option));
     }
 
     /** @dev Announces the winning result for the betting session and pays out winners. */
     function announcesSessionResultAndPay() external onlyOwner closedForBets {
+        // 1. Asks for the result.
+        // 2. Pays out winners.
+        // 3. Closes current betting session.
+        // 4. Raises event to log result.
         BetOption result = flipCoin();
         rewardWinners(result);
         ongoingSession = false;
@@ -136,13 +154,14 @@ contract CoinFlip {
         );
     }
     
-    /** @dev Updates the stats (counters and amounts) of the current betting session.
-        @param option 
+    /** @dev Updates the stats of the current betting session.
+        @param betOption Bet option chosen by the player.
+        @param betAmount The amount the player bet.
     */
-    function updateSessionStats(BetOption option, uint betAmount) private openForBets {
-        // Increments bet counters (total and specific option (head/tail)).
+    function updateSessionStats(BetOption betOption, uint betAmount) private openForBets {
+        // Increments bet counters (total and specific betOption (head/tail)).
         sessions[sessionIndex].count++;
-        if (option == BetOption.HEAD) {
+        if (betOption == BetOption.HEAD) {
             sessions[sessionIndex].headsCount++;
             sessions[sessionIndex].headsAmount += betAmount;
         } else {
@@ -151,30 +170,37 @@ contract CoinFlip {
         }
     }
 
+    /** @dev Generates a result that represents a coin flip.
+        @return A BetOption representing Head or Tail.
+    */
     function flipCoin() private view onlyOwner closedForBets returns (BetOption) {
         // PS: Known insecure random generation (designed for simplicity).
         return BetOption(uint(keccak256(abi.encodePacked(block.timestamp, sessionIndex))) % 2);
     }
     
+    /** @dev Pays out the winners of the current betting session.
+        @param result The result of the current bet session.
+    */
     function rewardWinners(BetOption result) private onlyOwner closedForBets {
+        // 1. Calculates the fee that goes to the house/contract.
+        // 2. Calculates the total prize that can be paid out to winners, after paying the owner/house.
+        // 3. Gets the amount bet on the winning result, so it can be used to split
         BetOption winningOption = BetOption(result);
-        // calculates the fee that goes to the house/contract.
         uint fee = address(this).balance * sessions[sessionIndex].ownerFee / 100;
         uint totalPrize = address(this).balance - fee;
         uint winningBetAmount;
-
         if (winningOption == BetOption.HEAD) {
             winningBetAmount = sessions[sessionIndex].headsAmount;
         } else {
             winningBetAmount = sessions[sessionIndex].tailsAmount;
         }
 
-        // Pays out players
+        // Pays out players, by calculating the ratio that every player
         for (uint i = 0; i < betsBySession[sessionIndex].length; i++) {
             Bet memory curBet = betsBySession[sessionIndex][i];
             if (curBet.option == winningOption) {
-                // Gets the percentage of the player's bet, em relation to the amount
-                // betted on the winning result.
+                // Gets the percentage/ratio of the player's bet,
+                // em relation to the amount betted on the winning result.
                 uint relativeBetSize = curBet.amount / winningBetAmount * 100;
                 // Calculates the prize for the player, considering its 
                 // stake (relativeBetSize) em relation to the total prize.
@@ -189,6 +215,6 @@ contract CoinFlip {
         owner.transfer(address(this).balance);
     }
 
-    // IMPROVEMENT IDEA - Create public function that can be called after a period of time by any
-    // player, in case owner did not announce winners within a certain time.
+    // IMPROVEMENT IDEA - Create public function that can be called after a specific period
+    // of time by any player, in case owner did not announce winners within a specific time.
 }
