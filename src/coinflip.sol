@@ -1,6 +1,30 @@
+/* MIT License
+
+Copyright (c) 2018 fodisi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ */
+
 pragma solidity ^0.4.24;
 
 /** @title CoinFlip
+    @author fodisi - https://github.com/fodisi/
     @notice Contract for betting on the result of a coin flip (head or tail).
     @dev The contract was crated using the specific logic (steps):
     1. The owner/house opens a Betting Session specifying the characteristics
@@ -59,7 +83,7 @@ contract CoinFlip {
     }
     
     // The contract's instance owner.
-    address private owner;
+    address public owner;
     // Unique identifier for a bet session.
     uint private sessionIndex;
     //BetSession currentSession;
@@ -195,7 +219,9 @@ contract CoinFlip {
             winningBetAmount = sessions[sessionIndex].tailsAmount;
         }
 
-        // Pays out players, by calculating the ratio that every player
+        // 4. Pays out players.
+        // Calculates the ratio between player's bet amount and the total prize,
+        // to determine the player's prize.
         for (uint i = 0; i < betsBySession[sessionIndex].length; i++) {
             Bet memory curBet = betsBySession[sessionIndex][i];
             if (curBet.option == winningOption) {
@@ -211,10 +237,16 @@ contract CoinFlip {
             // No prize for losers.
         }
 
-        // Pays owner's fee - gas.
+        // Pays owner's fee (what was left in the contract after paying winners).
         owner.transfer(address(this).balance);
+        // IMPROVEMENT: Currently, this function assumes that at least one player wins
+        // the current session. In case no one wins, the owner receives the total amount
+        // of the bets, and not only his fee (not good...).
     }
 
     // IMPROVEMENT IDEA - Create public function that can be called after a specific period
     // of time by any player, in case owner did not announce winners within a specific time.
+
+    // IMPROVEMENT IDEA - Add a function that allows self-destruction of the contract.
+    
 }
